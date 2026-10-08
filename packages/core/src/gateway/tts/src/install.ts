@@ -43,10 +43,14 @@ async function extractTarGz(archivePath: string, destDir: string): Promise<void>
 async function extractZip(archivePath: string, destDir: string): Promise<void> {
   let code: number
   if (process.platform === "win32") {
-    code = await Bun.spawn(
-      ["powershell", "-Command", `Expand-Archive -Path "${archivePath}" -DestinationPath "${destDir}" -Force`],
-      { stdout: "inherit", stderr: "inherit" }
-    ).exited
+    // `Expand-Archive` can fail to autoload Microsoft.PowerShell.Archive when
+    // Hive is launched from a Bun/embedded runtime with a restricted module
+    // path or execution policy. Windows 10/11 ship tar.exe (libarchive), and
+    // it extracts this ZIP without depending on PowerShell modules.
+    code = await Bun.spawn(["tar.exe", "-xf", archivePath, "-C", destDir], {
+      stdout: "inherit",
+      stderr: "inherit",
+    }).exited
   } else {
     code = await Bun.spawn(["unzip", "-q", archivePath, "-d", destDir], {
       stdout: "inherit",
